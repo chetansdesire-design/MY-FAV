@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Dashboard</title>
+    <style>
+        :root { --bg: #0f172a; --text: #ffffff; --panel-bg: #1e293b; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .header { text-align: center; margin: 30px 0; }
+        h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: 1px; color: #f8fafc; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; max-width: 360px; }
+        .link-item { aspect-ratio: 1 / 1; border-radius: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none; color: white; font-weight: 700; font-size: 0.8rem; text-align: center; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s; text-transform: uppercase; }
+        .link-item:hover { transform: scale(1.05); filter: brightness(1.1); }
+        #settings-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        .input-group { background: var(--panel-bg); padding: 10px; border-radius: 12px; margin-bottom: 10px; display: flex; gap: 8px; }
+        input { padding: 12px; background: #334155; border: none; color: white; font-size: 14px; flex-grow: 1; border-radius: 8px; }
+        .btn { padding: 12px 20px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 0.75rem; }
+        #toggle-settings { position: fixed; bottom: 30px; background: #6366f1; color: #fff; }
+        .add-btn { background: #22c55e; color: white; width: 100%; margin: 10px 0; }
+        .save-btn { background: #6366f1; color: white; width: 100%; margin-top: 20px; }
+        .del-btn { background: #ef4444; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1 id="ui-title">LOADING...</h1>
+    </div>
+
+    <div class="grid" id="link-grid"></div>
+
+    <button id="toggle-settings" class="btn" onclick="showSettings()">Edit Layout</button>
+
+    <div id="settings-overlay">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 1.2rem;">Cloud Settings</h2>
+            <button class="btn del-btn" onclick="closeSettings()">Cancel</button>
+        </div>
+        <div style="margin-bottom: 25px;">
+            <label style="font-size: 0.7rem; opacity: 0.7; font-weight: 800;">DASHBOARD TITLE</label>
+            <input type="text" id="edit-title" style="display: block; width: 100%; margin-top: 5px;">
+        </div>
+        <label style="font-size: 0.7rem; opacity: 0.7; font-weight: 800;">MANAGE BUTTONS</label>
+        <div id="link-editor" style="margin-top: 10px;"></div>
+        <button class="btn add-btn" onclick="addLink()">+ Add New Button</button>
+        <button class="btn save-btn" onclick="saveData()">Save to Cloud</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+    <script>
+        // Use your specific Firebase Realtime Database URL
+        const firebaseConfig = {
+            databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'];
+
+        let appData = { title: "MY DASHBOARD", links: [] };
+
+        // Load data from Firebase on startup
+        function loadFromCloud() {
+            db.ref('dashboard').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    appData = data;
+                    renderGrid();
+                }
+            });
+        }
+
+        // Render function updated to use cloud data
+        function renderGrid() {
+            document.getElementById('ui-title').innerText = appData.title;
+            const grid = document.getElementById('link-grid');
+            grid.innerHTML = (appData.links || []).map((link, i) => `
+                <a href="${link.url}" target="_blank" class="link-item" style="background-color: ${colors[i % colors.length]}">
+                    ${link.name}
+                </a>
+            `).join('');
+        }
+
+        function showSettings() {
+            document.getElementById('settings-overlay').style.display = 'block';
+            document.getElementById('edit-title').value = appData.title;
+            updateEditor();
+        }
+
+        function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+
+        function updateEditor() {
+            const editor = document.getElementById('link-editor');
+            editor.innerHTML = (appData.links || []).map((link, i) => `
+                <div class="input-group">
+                    <input type="text" value="${link.name}" oninput="appData.links[${i}].name = this.value" placeholder="Label">
+                    <input type="text" value="${link.url}" oninput="appData.links[${i}].url = this.value" placeholder="URL">
+                    <button class="btn del-btn" onclick="removeLink(${i})">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function addLink() { 
+            if(!appData.links) appData.links = [];
+            appData.links.push({ name: "New", url: "https://" }); 
+            updateEditor(); 
+        }
+
+        function removeLink(i) { appData.links.splice(i, 1); updateEditor(); }
+
+        // Save function updated to push to Firebase
+        function saveData() {
+            appData.title = document.getElementById('edit-title').value;
+            db.ref('dashboard').set(appData).then(() => {
+                closeSettings();
+            }).catch(alert);
+        }
+
+        loadFromCloud();
+    </script>
+</body>
+</html>
