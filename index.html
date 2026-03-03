@@ -3,123 +3,244 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firebase Dashboard</title>
+    <title>Glass Dashboard - Cloud Sync</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
-        :root { --bg: #0f172a; --text: #ffffff; --panel-bg: #1e293b; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .header { text-align: center; margin: 30px 0; }
-        h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: 1px; color: #f8fafc; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; max-width: 360px; }
-        .link-item { aspect-ratio: 1 / 1; border-radius: 16px; display: flex; align-items: center; justify-content: center; text-decoration: none; color: white; font-weight: 700; font-size: 0.8rem; text-align: center; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s; text-transform: uppercase; }
-        .link-item:hover { transform: scale(1.05); filter: brightness(1.1); }
-        #settings-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 1000; padding: 20px; box-sizing: border-box; overflow-y: auto; }
-        .input-group { background: var(--panel-bg); padding: 10px; border-radius: 12px; margin-bottom: 10px; display: flex; gap: 8px; }
-        input { padding: 12px; background: #334155; border: none; color: white; font-size: 14px; flex-grow: 1; border-radius: 8px; }
-        .btn { padding: 12px 20px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 0.75rem; }
-        #toggle-settings { position: fixed; bottom: 30px; background: #6366f1; color: #fff; }
-        .add-btn { background: #22c55e; color: white; width: 100%; margin: 10px 0; }
-        .save-btn { background: #6366f1; color: white; width: 100%; margin-top: 20px; }
-        .del-btn { background: #ef4444; color: white; }
+        :root {
+            --bg-gradient: radial-gradient(circle at top left, #1e293b, #0f172a);
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --good: #4ade80;
+            --neutral: #fbbf24;
+            --bad: #f87171;
+            --news-red: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        .news-ticker {
+            width: 100%; max-width: 360px;
+            background: rgba(239, 68, 68, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: flex; align-items: center;
+            overflow: hidden; padding: 8px;
+            box-sizing: border-box;
+        }
+
+        .news-label {
+            background: var(--news-red);
+            color: white; font-size: 0.65rem; font-weight: 900;
+            padding: 4px 8px; border-radius: 6px;
+            margin-right: 10px; white-space: nowrap;
+            text-transform: uppercase;
+        }
+
+        marquee { font-size: 0.85rem; font-weight: 500; color: #fff; cursor: pointer; }
+
+        .info-panel {
+            width: 100%; max-width: 360px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 20px; margin-bottom: 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-sizing: border-box;
+        }
+
+        .time-box { text-align: left; }
+        #live-time { font-size: 1.5rem; font-weight: 800; display: block; }
+        #live-date { font-size: 0.75rem; color: var(--text-secondary); }
+
+        .chog-box { text-align: right; }
+        .chog-label { font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; display: block; }
+        #choghadiya-name { font-weight: 900; font-size: 1.1rem; text-transform: uppercase; }
+
+        .search-container { width: 100%; max-width: 360px; margin-bottom: 20px; }
+        .search-bar {
+            width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 50px;
+            padding: 12px 20px; display: flex; align-items: center; box-sizing: border-box;
+        }
+        .search-bar input { background: none; border: none; color: white; width: 100%; outline: none; margin-left: 10px; font-size: 0.95rem; }
+
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; max-width: 360px; }
+        .link-item {
+            aspect-ratio: 1/1; background: var(--glass-bg); backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-decoration: none; color: white; font-size: 0.8rem; font-weight: 600;
+            transition: 0.3s; text-align: center; box-sizing: border-box;
+        }
+        .link-item:hover { transform: translateY(-5px); background: rgba(255,255,255,0.15); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 10px; box-shadow: 0 0 12px currentColor; }
+
+        #toggle-settings { margin-top: 40px; border: none; background: none; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+        #settings-overlay { display: none; position: fixed; inset: 0; background: rgba(10, 15, 25, 0.95); backdrop-filter: blur(30px); z-index: 1000; padding: 20px; justify-content: center; align-items: start; overflow-y: auto; }
+        .settings-card { width: 100%; max-width: 400px; background: var(--glass-bg); padding: 25px; border-radius: 24px; border: 1px solid var(--glass-border); margin-top: 20px; }
+        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .settings-input { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; padding: 10px; border-radius: 10px; width: 100%; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1 id="ui-title">LOADING...</h1>
+    <div class="news-ticker">
+        <span class="news-label">Breaking</span>
+        <marquee scrollamount="5" onclick="window.open('https://www.aajtak.in/', '_blank')">
+            आज की ताजा खबरें: ईरान का इजरायल पर पलटवार जारी... दिल्ली में होली पर खुली रहेंगी शराब की दुकानें... शेयर बाजार में भारी उतार-चढ़ाव... 
+        </marquee>
+    </div>
+
+    <div class="info-panel">
+        <div class="time-box">
+            <span id="live-time">00:00</span>
+            <span id="live-date">Loading...</span>
+        </div>
+        <div class="chog-box">
+            <span class="chog-label" id="day-night-label">Choghadiya</span>
+            <span id="choghadiya-name">---</span>
+        </div>
+    </div>
+
+    <div class="search-container">
+        <form action="https://www.google.com/search" method="GET" target="_blank" class="search-bar">
+            <span style="opacity: 0.6;">🔍</span>
+            <input type="text" name="q" placeholder="Search Google..." autocomplete="off">
+        </form>
     </div>
 
     <div class="grid" id="link-grid"></div>
 
-    <button id="toggle-settings" class="btn" onclick="showSettings()">Edit Layout</button>
+    <button id="toggle-settings" onclick="showSettings()">Settings & Shortcuts</button>
 
     <div id="settings-overlay">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="font-size: 1.2rem;">Cloud Settings</h2>
-            <button class="btn del-btn" onclick="closeSettings()">Cancel</button>
+        <div class="settings-card">
+            <h2 style="margin-top:0">Shortcuts</h2>
+            <div id="link-editor" style="margin-bottom: 20px;"></div>
+            <button onclick="addLink()" style="width:100%; padding:12px; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border); border-radius:12px; color:white; margin-bottom:10px; cursor:pointer;">+ Add Button</button>
+            <button onclick="saveData()" style="width:100%; padding:14px; background:var(--accent); border:none; border-radius:12px; color:white; font-weight:bold; cursor:pointer;">Save Changes</button>
+            <button onclick="closeSettings()" style="width:100%; background:none; color:var(--text-secondary); border:none; margin-top:10px; cursor:pointer;">Cancel</button>
         </div>
-        <div style="margin-bottom: 25px;">
-            <label style="font-size: 0.7rem; opacity: 0.7; font-weight: 800;">DASHBOARD TITLE</label>
-            <input type="text" id="edit-title" style="display: block; width: 100%; margin-top: 5px;">
-        </div>
-        <label style="font-size: 0.7rem; opacity: 0.7; font-weight: 800;">MANAGE BUTTONS</label>
-        <div id="link-editor" style="margin-top: 10px;"></div>
-        <button class="btn add-btn" onclick="addLink()">+ Add New Button</button>
-        <button class="btn save-btn" onclick="saveData()">Save to Cloud</button>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
-
     <script>
-        // Use your specific Firebase Realtime Database URL
+        // --- FIREBASE SETUP ---
         const firebaseConfig = {
-            databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/"
+            databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/",
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        const linksRef = db.ref('dashboard_links');
 
-        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'];
+        // --- CONSTANTS ---
+        const colors = ['#6366f1', '#2dd4bf', '#f43f5e', '#fbbf24', '#a855f7', '#0ea5e9'];
+        const CHOG_NAMES = ["UDVEG", "CHAL", "LABH", "AMRIT", "KAAL", "SHUBH", "ROG"];
+        const DAY_SEQ = [[0,1,2,3,4,5,6,0],[3,4,5,6,0,1,2,3],[6,0,1,2,3,4,5,6],[2,3,4,5,6,0,1,2],[5,6,0,1,2,3,4,5],[1,2,3,4,5,6,0,1],[4,5,6,0,1,2,3,4]];
+        const NIGHT_SEQ = [[5,6,0,1,2,3,4,5],[2,3,4,5,6,0,1,2],[6,0,1,2,3,4,5,6],[4,5,6,0,1,2,3,4],[1,2,3,4,5,6,0,1],[5,6,0,1,2,3,4,5],[3,4,5,6,0,1,2,3]];
 
-        let appData = { title: "MY DASHBOARD", links: [] };
+        // --- NEW LINKS REPLACED HERE ---
+        let appData = {
+            links: [
+                { name: "One Click", url: "https://all-in-one-868c5-default-rtdb.firebaseio.com/" },
+                { name: "Gmail", url: "https://gmail.com" },
+                { name: "Insta", url: "https://instagram.com" },
+                { name: "YT", url: "https://youtube.com" },
+                { name: "Maps", url: "https://maps.google.com" },
+                { name: "Drive", url: "https://drive.google.com" }
+            ]
+        };
 
-        // Load data from Firebase on startup
-        function loadFromCloud() {
-            db.ref('dashboard').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    appData = data;
-                    renderGrid();
-                }
-            });
+        // Sync from Firebase
+        linksRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                appData.links = data;
+                renderGrid();
+            } else {
+                // If cloud is empty, save the new default links to cloud once
+                saveData();
+            }
+        });
+
+        function updateDisplay() {
+            const now = new Date();
+            const totalMins = (now.getHours() * 60) + now.getMinutes();
+            const day = now.getDay();
+            document.getElementById('live-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('live-date').innerText = now.toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'});
+
+            let sunrise = 392; let sunset = 1103;
+            let currentChog = "";
+            if (totalMins >= sunrise && totalMins < sunset) {
+                let slot = Math.floor((totalMins - sunrise) / ((sunset - sunrise) / 8));
+                currentChog = CHOG_NAMES[DAY_SEQ[day][Math.min(slot, 7)]];
+                document.getElementById('day-night-label').innerText = "Day Choghadiya";
+            } else {
+                let nightTotal = (totalMins < sunrise) ? totalMins + 1440 : totalMins;
+                let slot = Math.floor((nightTotal - sunset) / ((1440 - (sunset - sunrise)) / 8));
+                currentChog = CHOG_NAMES[NIGHT_SEQ[day][Math.min(slot, 7)]];
+                document.getElementById('day-night-label').innerText = "Night Choghadiya";
+            }
+
+            const el = document.getElementById('choghadiya-name');
+            el.innerText = currentChog;
+            const good = ["AMRIT", "LABH", "SHUBH"];
+            const bad = ["UDVEG", "KAAL", "ROG"];
+            el.style.color = good.includes(currentChog) ? "var(--good)" : (bad.includes(currentChog) ? "var(--bad)" : "var(--neutral)");
         }
 
-        // Render function updated to use cloud data
         function renderGrid() {
-            document.getElementById('ui-title').innerText = appData.title;
-            const grid = document.getElementById('link-grid');
-            grid.innerHTML = (appData.links || []).map((link, i) => `
-                <a href="${link.url}" target="_blank" class="link-item" style="background-color: ${colors[i % colors.length]}">
+            document.getElementById('link-grid').innerHTML = appData.links.map((link, i) => `
+                <a href="${link.url}" target="_blank" class="link-item">
+                    <div class="dot" style="color:${colors[i % colors.length]}; background:${colors[i % colors.length]}"></div>
                     ${link.name}
                 </a>
             `).join('');
         }
 
         function showSettings() {
-            document.getElementById('settings-overlay').style.display = 'block';
-            document.getElementById('edit-title').value = appData.title;
-            updateEditor();
-        }
-
-        function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
-
-        function updateEditor() {
-            const editor = document.getElementById('link-editor');
-            editor.innerHTML = (appData.links || []).map((link, i) => `
-                <div class="input-group">
-                    <input type="text" value="${link.name}" oninput="appData.links[${i}].name = this.value" placeholder="Label">
-                    <input type="text" value="${link.url}" oninput="appData.links[${i}].url = this.value" placeholder="URL">
-                    <button class="btn del-btn" onclick="removeLink(${i})">✕</button>
+            document.getElementById('settings-overlay').style.display = 'flex';
+            document.getElementById('link-editor').innerHTML = appData.links.map((link, i) => `
+                <div class="input-row">
+                    <input type="text" class="settings-input" value="${link.name}" id="n-${i}" style="width:30%">
+                    <input type="text" class="settings-input" value="${link.url}" id="u-${i}" style="width:60%">
+                    <button onclick="removeLink(${i})" style="color:#f87171; background:none; border:none; cursor:pointer;">✕</button>
                 </div>
             `).join('');
         }
 
-        function addLink() { 
-            if(!appData.links) appData.links = [];
-            appData.links.push({ name: "New", url: "https://" }); 
-            updateEditor(); 
-        }
-
-        function removeLink(i) { appData.links.splice(i, 1); updateEditor(); }
-
-        // Save function updated to push to Firebase
+        function addLink() { appData.links.push({name: "New", url: "https://"}); showSettings(); }
+        function removeLink(i) { appData.links.splice(i, 1); showSettings(); }
+        function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+        
         function saveData() {
-            appData.title = document.getElementById('edit-title').value;
-            db.ref('dashboard').set(appData).then(() => {
+            const updatedLinks = appData.links.map((_, i) => ({ 
+                name: document.getElementById(`n-${i}`).value, 
+                url: document.getElementById(`u-${i}`).value 
+            }));
+            linksRef.set(updatedLinks).then(() => {
                 closeSettings();
-            }).catch(alert);
+            });
         }
 
-        loadFromCloud();
+        setInterval(updateDisplay, 1000);
+        updateDisplay();
+        renderGrid();
     </script>
 </body>
 </html>
