@@ -17,7 +17,6 @@
             --good: #4ade80;
             --neutral: #fbbf24;
             --bad: #f87171;
-            --news-red: #ef4444;
         }
 
         body {
@@ -25,32 +24,10 @@
             background: var(--bg-gradient);
             background-attachment: fixed;
             color: var(--text-primary);
-            margin: 0; padding: 20px;
+            margin: 0; padding: 40px 20px;
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
         }
-
-        .news-ticker {
-            width: 100%; max-width: 360px;
-            background: rgba(239, 68, 68, 0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 12px;
-            margin-bottom: 15px;
-            display: flex; align-items: center;
-            overflow: hidden; padding: 8px;
-            box-sizing: border-box;
-        }
-
-        .news-label {
-            background: var(--news-red);
-            color: white; font-size: 0.65rem; font-weight: 900;
-            padding: 4px 8px; border-radius: 6px;
-            margin-right: 10px; white-space: nowrap;
-            text-transform: uppercase;
-        }
-
-        marquee { font-size: 0.85rem; font-weight: 500; color: #fff; cursor: pointer; }
 
         .info-panel {
             width: 100%; max-width: 360px;
@@ -58,7 +35,7 @@
             backdrop-filter: blur(25px);
             border: 1px solid var(--glass-border);
             border-radius: 24px;
-            padding: 20px; margin-bottom: 15px;
+            padding: 20px; margin-bottom: 20px;
             display: flex; justify-content: space-between; align-items: center;
             box-sizing: border-box;
         }
@@ -70,8 +47,10 @@
         .chog-box { text-align: right; }
         .chog-label { font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; display: block; }
         #choghadiya-name { font-weight: 900; font-size: 1.1rem; text-transform: uppercase; }
+        #choghadiya-time-range { font-size: 0.7rem; color: var(--text-secondary); display: block; margin-top: 2px; }
+        #next-chog { font-size: 0.65rem; color: var(--accent); font-weight: 600; margin-top: 4px; display: block; }
 
-        .search-container { width: 100%; max-width: 360px; margin-bottom: 20px; }
+        .search-container { width: 100%; max-width: 360px; margin-bottom: 25px; }
         .search-bar {
             width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border); border-radius: 50px;
@@ -90,7 +69,7 @@
         .link-item:hover { transform: translateY(-5px); background: rgba(255,255,255,0.15); }
         .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 10px; box-shadow: 0 0 12px currentColor; }
 
-        #toggle-settings { margin-top: 40px; border: none; background: none; color: var(--text-secondary); text-decoration: underline; cursor: pointer; }
+        #toggle-settings { margin-top: 40px; border: none; background: none; color: var(--text-secondary); text-decoration: underline; cursor: pointer; font-size: 0.8rem; }
         #settings-overlay { display: none; position: fixed; inset: 0; background: rgba(10, 15, 25, 0.95); backdrop-filter: blur(30px); z-index: 1000; padding: 20px; justify-content: center; align-items: start; overflow-y: auto; }
         .settings-card { width: 100%; max-width: 400px; background: var(--glass-bg); padding: 25px; border-radius: 24px; border: 1px solid var(--glass-border); margin-top: 20px; }
         .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -98,13 +77,6 @@
     </style>
 </head>
 <body>
-
-    <div class="news-ticker">
-        <span class="news-label">Breaking</span>
-        <marquee scrollamount="5" onclick="window.open('https://www.aajtak.in/', '_blank')">
-            आज की ताजा खबरें: ईरान का इजरायल पर पलटवार जारी... दिल्ली में होली पर खुली रहेंगी शराब की दुकानें... शेयर बाजार में भारी उतार-चढ़ाव... 
-        </marquee>
-    </div>
 
     <div class="info-panel">
         <div class="time-box">
@@ -114,6 +86,8 @@
         <div class="chog-box">
             <span class="chog-label" id="day-night-label">Choghadiya</span>
             <span id="choghadiya-name">---</span>
+            <span id="choghadiya-time-range">00:00 - 00:00</span>
+            <span id="next-chog">Next: ---</span>
         </div>
     </div>
 
@@ -139,69 +113,70 @@
     </div>
 
     <script>
-        // --- FIREBASE SETUP ---
-        const firebaseConfig = {
-            databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/",
-        };
+        const firebaseConfig = { databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const linksRef = db.ref('dashboard_links');
 
-        // --- CONSTANTS ---
         const colors = ['#6366f1', '#2dd4bf', '#f43f5e', '#fbbf24', '#a855f7', '#0ea5e9'];
         const CHOG_NAMES = ["UDVEG", "CHAL", "LABH", "AMRIT", "KAAL", "SHUBH", "ROG"];
         const DAY_SEQ = [[0,1,2,3,4,5,6,0],[3,4,5,6,0,1,2,3],[6,0,1,2,3,4,5,6],[2,3,4,5,6,0,1,2],[5,6,0,1,2,3,4,5],[1,2,3,4,5,6,0,1],[4,5,6,0,1,2,3,4]];
         const NIGHT_SEQ = [[5,6,0,1,2,3,4,5],[2,3,4,5,6,0,1,2],[6,0,1,2,3,4,5,6],[4,5,6,0,1,2,3,4],[1,2,3,4,5,6,0,1],[5,6,0,1,2,3,4,5],[3,4,5,6,0,1,2,3]];
 
-        // --- NEW LINKS REPLACED HERE ---
-        let appData = {
-            links: [
-                { name: "One Click", url: "https://all-in-one-868c5-default-rtdb.firebaseio.com/" },
-                { name: "Gmail", url: "https://gmail.com" },
-                { name: "Insta", url: "https://instagram.com" },
-                { name: "YT", url: "https://youtube.com" },
-                { name: "Maps", url: "https://maps.google.com" },
-                { name: "Drive", url: "https://drive.google.com" }
-            ]
-        };
+        let appData = { links: [] };
 
-        // Sync from Firebase
         linksRef.on('value', (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                appData.links = data;
-                renderGrid();
-            } else {
-                // If cloud is empty, save the new default links to cloud once
-                saveData();
-            }
+            if (data) { appData.links = data; renderGrid(); }
         });
+
+        function formatTime(m) {
+            let h = Math.floor((m % 1440) / 60);
+            let mins = Math.floor(m % 60);
+            let ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            return `${h}:${mins < 10 ? '0'+mins : mins} ${ampm}`;
+        }
 
         function updateDisplay() {
             const now = new Date();
             const totalMins = (now.getHours() * 60) + now.getMinutes();
             const day = now.getDay();
+            
             document.getElementById('live-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             document.getElementById('live-date').innerText = now.toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'});
 
-            let sunrise = 392; let sunset = 1103;
-            let currentChog = "";
+            const sunrise = 392; const sunset = 1103;
+            let currentSeq, slotDuration, startTime, isDay;
+
             if (totalMins >= sunrise && totalMins < sunset) {
-                let slot = Math.floor((totalMins - sunrise) / ((sunset - sunrise) / 8));
-                currentChog = CHOG_NAMES[DAY_SEQ[day][Math.min(slot, 7)]];
+                isDay = true; currentSeq = DAY_SEQ[day]; slotDuration = (sunset - sunrise) / 8; startTime = sunrise;
                 document.getElementById('day-night-label').innerText = "Day Choghadiya";
             } else {
-                let nightTotal = (totalMins < sunrise) ? totalMins + 1440 : totalMins;
-                let slot = Math.floor((nightTotal - sunset) / ((1440 - (sunset - sunrise)) / 8));
-                currentChog = CHOG_NAMES[NIGHT_SEQ[day][Math.min(slot, 7)]];
+                isDay = false; currentSeq = NIGHT_SEQ[day]; slotDuration = (1440 - (sunset - sunrise)) / 8; startTime = sunset;
                 document.getElementById('day-night-label').innerText = "Night Choghadiya";
             }
+
+            let timeIntoPeriod = (totalMins < sunrise && !isDay) ? (totalMins + 1440) - sunset : totalMins - startTime;
+            let slotIndex = Math.floor(timeIntoPeriod / slotDuration);
+            slotIndex = Math.max(0, Math.min(slotIndex, 7));
+
+            const currentChog = CHOG_NAMES[currentSeq[slotIndex]];
+            const nextChogName = (slotIndex < 7) 
+                ? CHOG_NAMES[currentSeq[slotIndex + 1]] 
+                : CHOG_NAMES[(isDay ? NIGHT_SEQ[day][0] : DAY_SEQ[(day + 1) % 7][0])];
+
+            const slotStart = startTime + (slotIndex * slotDuration);
+            const slotEnd = slotStart + slotDuration;
 
             const el = document.getElementById('choghadiya-name');
             el.innerText = currentChog;
             const good = ["AMRIT", "LABH", "SHUBH"];
             const bad = ["UDVEG", "KAAL", "ROG"];
             el.style.color = good.includes(currentChog) ? "var(--good)" : (bad.includes(currentChog) ? "var(--bad)" : "var(--neutral)");
+            
+            document.getElementById('choghadiya-time-range').innerText = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
+            document.getElementById('next-chog').innerText = `Next: ${nextChogName}`;
         }
 
         function renderGrid() {
@@ -233,14 +208,11 @@
                 name: document.getElementById(`n-${i}`).value, 
                 url: document.getElementById(`u-${i}`).value 
             }));
-            linksRef.set(updatedLinks).then(() => {
-                closeSettings();
-            });
+            linksRef.set(updatedLinks).then(() => { closeSettings(); });
         }
 
         setInterval(updateDisplay, 1000);
         updateDisplay();
-        renderGrid();
     </script>
 </body>
 </html>
