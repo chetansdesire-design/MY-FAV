@@ -24,9 +24,23 @@
             background: var(--bg-gradient);
             background-attachment: fixed;
             color: var(--text-primary);
-            margin: 0; padding: 40px 20px;
+            margin: 0; padding: 20px;
             display: flex; flex-direction: column; align-items: center;
             min-height: 100vh;
+        }
+
+        /* DYNAMIC MANUAL TEXT BOX */
+        .manual-text-box {
+            width: 100%; max-width: 360px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 12px;
+            text-align: center;
+            box-sizing: border-box;
+            transition: 0.3s;
         }
 
         .info-panel {
@@ -64,7 +78,7 @@
             border: 1px solid var(--glass-border); border-radius: 20px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-decoration: none; color: white; font-size: 0.8rem; font-weight: 600;
-            transition: 0.3s; text-align: center; box-sizing: border-box;
+            transition: 0.3s; text-align: center; box-sizing: border-box; padding: 8px;
         }
         .link-item:hover { transform: translateY(-5px); background: rgba(255,255,255,0.15); }
         .dot { width: 8px; height: 8px; border-radius: 50%; margin-bottom: 10px; box-shadow: 0 0 12px currentColor; }
@@ -74,9 +88,12 @@
         .settings-card { width: 100%; max-width: 400px; background: var(--glass-bg); padding: 25px; border-radius: 24px; border: 1px solid var(--glass-border); margin-top: 20px; }
         .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
         .settings-input { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; padding: 10px; border-radius: 10px; width: 100%; }
+        .style-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
+
+    <div class="manual-text-box" id="display-header">DASHBOARD</div>
 
     <div class="info-panel">
         <div class="time-box">
@@ -92,9 +109,9 @@
     </div>
 
     <div class="search-container">
-        <form action="https://www.google.com/search" method="GET" target="_blank" class="search-bar">
+        <form action="https://www.google.com/search" method="GET" target="_blank" class="search-bar" onsubmit="clearSearch()">
             <span style="opacity: 0.6;">🔍</span>
-            <input type="text" name="q" placeholder="Search Google..." autocomplete="off">
+            <input type="text" name="q" id="main-search" placeholder="Search Google..." autocomplete="off">
         </form>
     </div>
 
@@ -104,10 +121,38 @@
 
     <div id="settings-overlay">
         <div class="settings-card">
-            <h2 style="margin-top:0">Shortcuts</h2>
-            <div id="link-editor" style="margin-bottom: 20px;"></div>
-            <button onclick="addLink()" style="width:100%; padding:12px; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border); border-radius:12px; color:white; margin-bottom:10px; cursor:pointer;">+ Add Button</button>
-            <button onclick="saveData()" style="width:100%; padding:14px; background:var(--accent); border:none; border-radius:12px; color:white; font-weight:bold; cursor:pointer;">Save Changes</button>
+            <h2 style="margin-top:0">Customize Dashboard</h2>
+            
+            <label style="font-size: 0.75rem; color: var(--text-secondary);">HEADER TEXT</label>
+            <input type="text" id="header-input" class="settings-input" style="margin-bottom:15px;">
+            
+            <div class="style-grid">
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">FONT SIZE (px)</label>
+                    <input type="number" id="size-input" class="settings-input" value="18">
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">COLOR</label>
+                    <input type="color" id="color-input" class="settings-input" style="padding: 2px; height: 42px;">
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">WEIGHT (100-900)</label>
+                    <input type="number" id="weight-input" class="settings-input" step="100" min="100" max="900">
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">STYLE</label>
+                    <select id="style-input" class="settings-input">
+                        <option value="normal">Normal</option>
+                        <option value="italic">Italic</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr style="opacity:0.1; margin-bottom:20px;">
+            <h3>Shortcuts</h3>
+            <div id="link-editor"></div>
+            <button onclick="addLink()" style="width:100%; padding:10px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:12px; color:white; margin-bottom:10px; cursor:pointer; margin-top:10px;">+ Add Link</button>
+            <button onclick="saveData()" id="save-btn" style="width:100%; padding:14px; background:var(--accent); border:none; border-radius:12px; color:white; font-weight:bold; cursor:pointer;">Save Changes</button>
             <button onclick="closeSettings()" style="width:100%; background:none; color:var(--text-secondary); border:none; margin-top:10px; cursor:pointer;">Cancel</button>
         </div>
     </div>
@@ -117,6 +162,7 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
         const linksRef = db.ref('dashboard_links');
+        const headerRef = db.ref('dashboard_header_v2'); // New node for enhanced styles
 
         const colors = ['#6366f1', '#2dd4bf', '#f43f5e', '#fbbf24', '#a855f7', '#0ea5e9'];
         const CHOG_NAMES = ["UDVEG", "CHAL", "LABH", "AMRIT", "KAAL", "SHUBH", "ROG"];
@@ -125,10 +171,26 @@
 
         let appData = { links: [] };
 
-        linksRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) { appData.links = data; renderGrid(); }
+        // INITIAL SYNC
+        linksRef.on('value', (s) => { appData.links = s.val() || []; renderGrid(); });
+        headerRef.on('value', (s) => { 
+            const d = s.val() || { text: "WELCOME", size: 18, color: "#ffffff", weight: 800, style: "normal" };
+            const el = document.getElementById('display-header');
+            el.innerText = d.text;
+            el.style.fontSize = d.size + "px";
+            el.style.color = d.color;
+            el.style.fontWeight = d.weight;
+            el.style.fontStyle = d.style;
+
+            // Fill settings
+            document.getElementById('header-input').value = d.text;
+            document.getElementById('size-input').value = d.size;
+            document.getElementById('color-input').value = d.color;
+            document.getElementById('weight-input').value = d.weight;
+            document.getElementById('style-input').value = d.style;
         });
+
+        function clearSearch() { setTimeout(() => { document.getElementById('main-search').value = ''; }, 50); }
 
         function formatTime(m) {
             let h = Math.floor((m % 1440) / 60);
@@ -142,41 +204,28 @@
             const now = new Date();
             const totalMins = (now.getHours() * 60) + now.getMinutes();
             const day = now.getDay();
-            
             document.getElementById('live-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
             document.getElementById('live-date').innerText = now.toLocaleDateString([], {weekday: 'short', day: 'numeric', month: 'short'});
 
             const sunrise = 392; const sunset = 1103;
             let currentSeq, slotDuration, startTime, isDay;
-
             if (totalMins >= sunrise && totalMins < sunset) {
                 isDay = true; currentSeq = DAY_SEQ[day]; slotDuration = (sunset - sunrise) / 8; startTime = sunrise;
-                document.getElementById('day-night-label').innerText = "Day Choghadiya";
             } else {
                 isDay = false; currentSeq = NIGHT_SEQ[day]; slotDuration = (1440 - (sunset - sunrise)) / 8; startTime = sunset;
-                document.getElementById('day-night-label').innerText = "Night Choghadiya";
             }
-
             let timeIntoPeriod = (totalMins < sunrise && !isDay) ? (totalMins + 1440) - sunset : totalMins - startTime;
-            let slotIndex = Math.floor(timeIntoPeriod / slotDuration);
-            slotIndex = Math.max(0, Math.min(slotIndex, 7));
+            let slotIndex = Math.max(0, Math.min(Math.floor(timeIntoPeriod / slotDuration), 7));
 
             const currentChog = CHOG_NAMES[currentSeq[slotIndex]];
-            const nextChogName = (slotIndex < 7) 
-                ? CHOG_NAMES[currentSeq[slotIndex + 1]] 
-                : CHOG_NAMES[(isDay ? NIGHT_SEQ[day][0] : DAY_SEQ[(day + 1) % 7][0])];
-
-            const slotStart = startTime + (slotIndex * slotDuration);
-            const slotEnd = slotStart + slotDuration;
-
-            const el = document.getElementById('choghadiya-name');
-            el.innerText = currentChog;
-            const good = ["AMRIT", "LABH", "SHUBH"];
-            const bad = ["UDVEG", "KAAL", "ROG"];
-            el.style.color = good.includes(currentChog) ? "var(--good)" : (bad.includes(currentChog) ? "var(--bad)" : "var(--neutral)");
+            document.getElementById('choghadiya-name').innerText = currentChog;
+            const good = ["AMRIT", "LABH", "SHUBH"], bad = ["UDVEG", "KAAL", "ROG"];
+            document.getElementById('choghadiya-name').style.color = good.includes(currentChog) ? "var(--good)" : (bad.includes(currentChog) ? "var(--bad)" : "var(--neutral)");
             
-            document.getElementById('choghadiya-time-range').innerText = `${formatTime(slotStart)} - ${formatTime(slotEnd)}`;
-            document.getElementById('next-chog').innerText = `Next: ${nextChogName}`;
+            let nxt = (slotIndex < 7) ? CHOG_NAMES[currentSeq[slotIndex + 1]] : (isDay ? CHOG_NAMES[NIGHT_SEQ[day][0]] : CHOG_NAMES[DAY_SEQ[(day + 1) % 7][0]]);
+            document.getElementById('day-night-label').innerText = isDay ? "Day Choghadiya" : "Night Choghadiya";
+            document.getElementById('choghadiya-time-range').innerText = `${formatTime(startTime + (slotIndex * slotDuration))} - ${formatTime(startTime + ((slotIndex + 1) * slotDuration))}`;
+            document.getElementById('next-chog').innerText = `Next: ${nxt}`;
         }
 
         function renderGrid() {
@@ -194,7 +243,7 @@
                 <div class="input-row">
                     <input type="text" class="settings-input" value="${link.name}" id="n-${i}" style="width:30%">
                     <input type="text" class="settings-input" value="${link.url}" id="u-${i}" style="width:60%">
-                    <button onclick="removeLink(${i})" style="color:#f87171; background:none; border:none; cursor:pointer;">✕</button>
+                    <button onclick="removeLink(${i})" style="color:var(--bad); background:none; border:none; cursor:pointer;">✕</button>
                 </div>
             `).join('');
         }
@@ -204,11 +253,24 @@
         function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
         
         function saveData() {
+            const btn = document.getElementById('save-btn'); btn.innerText = "Saving...";
+            
+            const headData = {
+                text: document.getElementById('header-input').value,
+                size: document.getElementById('size-input').value,
+                color: document.getElementById('color-input').value,
+                weight: document.getElementById('weight-input').value,
+                style: document.getElementById('style-input').value
+            };
+
             const updatedLinks = appData.links.map((_, i) => ({ 
                 name: document.getElementById(`n-${i}`).value, 
                 url: document.getElementById(`u-${i}`).value 
             }));
-            linksRef.set(updatedLinks).then(() => { closeSettings(); });
+
+            Promise.all([linksRef.set(updatedLinks), headerRef.set(headData)]).then(() => { 
+                btn.innerText = "Save Changes"; closeSettings(); 
+            });
         }
 
         setInterval(updateDisplay, 1000);
