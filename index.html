@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URBAN CASA | Smart Dashboard v4.2.2</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Playfair+Display:ital,wght@0,700;1,700&family=Roboto+Mono&family=Montserrat:wght@800&display=swap');
+
+        :root {
+            --bg-gradient: radial-gradient(circle at top left, #1e293b, #0f172a);
+            --glass-bg: rgba(255, 255, 255, 0.07);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #6366f1;
+            --good: #4ade80;
+            --neutral: #fbbf24;
+            --bad: #f87171;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient); background-attachment: fixed;
+            color: var(--text-primary); margin: 0; padding: 15px;
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+            transition: filter 0.5s ease;
+        }
+
+        .main-wrapper { width: 100%; max-width: 1200px; display: flex; flex-direction: column; align-items: center; }
+
+        /* QUOTE BOX */
+        .quote-box {
+            width: 100%; max-width: 500px; background: var(--glass-bg); backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px;
+            margin-bottom: 15px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            color: var(--text-primary); 
+            line-height: 1.5;
+        }
+
+        /* INFO PANEL */
+        .info-panel {
+            width: 100%; background: var(--glass-bg); backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;
+        }
+
+        @keyframes smoothPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.02); } }
+        .chog-now { font-weight: 900; font-size: 1.4rem; animation: smoothPulse 2.5s infinite; }
+
+        /* SEARCH & SUGGESTIONS */
+        .search-container { width: 100%; position: relative; margin-bottom: 25px; z-index: 100; }
+        .search-bar {
+            width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); border-radius: 50px; padding: 14px 24px;
+            display: flex; align-items: center; box-sizing: border-box;
+        }
+        .search-bar input { background: none; border: none; color: white; width: 100%; outline: none; font-size: 1.1rem; }
+        
+        .suggestions {
+            position: absolute; top: 110%; left: 0; right: 0; background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 15px;
+            display: none; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .suggestion-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .suggestion-item:hover { background: var(--accent); }
+
+        /* GRID RESPONSIVENESS */
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+        @media (min-width: 1024px) and (orientation: landscape) { .grid { grid-template-columns: repeat(8, 1fr); } }
+
+        .link-item {
+            aspect-ratio: 1/1; background: var(--glass-bg); backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border); border-radius: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-decoration: none; color: white; font-size: 0.8rem; font-weight: 600;
+            transition: 0.2s; text-align: center; cursor: grab; padding: 10px;
+        }
+        .link-item:hover { transform: scale(1.05); background: rgba(255, 255, 255, 0.1); }
+
+        /* SETTINGS & INPUTS */
+        #settings-overlay { display: none; position: fixed; inset: 0; background: rgba(10, 15, 25, 0.98); z-index: 1000; padding: 20px; overflow-y: auto; }
+        .settings-card { width: 100%; max-width: 500px; margin: 20px auto; background: var(--glass-bg); padding: 25px; border-radius: 24px; border: 1px solid var(--glass-border); }
+        .settings-input, .settings-select { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; padding: 12px; border-radius: 10px; width: 100%; margin-bottom: 15px; box-sizing: border-box; font-size: 0.9rem; }
+        
+        .settings-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; align-items: center; }
+        .settings-row label { grid-column: 1 / -1; font-size: 0.7rem; color: var(--text-secondary); margin-bottom: -10px; }
+    </style>
+</head>
+<body>
+
+    <div class="main-wrapper" id="app-wrapper">
+        <div class="quote-box" id="display-header">ज्ञान लोड हो रहा है...</div>
+
+        <div class="info-panel">
+            <div class="time-box" style="flex: 1;">
+                <span id="live-time" style="font-size: 1.8rem; font-weight: 900; display: block; color: white;">00:00</span>
+                <span id="live-date" style="color: var(--text-secondary); font-size: 0.85rem;">--</span>
+            </div>
+            
+            <div id="weather-box" style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <span id="weather-icon" style="font-size: 1.8rem; margin-bottom: 2px;">--</span>
+                <span id="weather-temp" style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 700;">-- °C</span>
+            </div>
+
+            <div class="chog-box" style="flex: 1; text-align: right;">
+                <span id="chog-label" style="font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">CHOGHADIYA</span>
+                <div id="choghadiya-name" class="chog-now">--</div>
+                <div id="chog-range" style="font-size: 0.8rem; opacity: 0.8; font-weight: 600;">--:-- to --:--</div>
+                <div id="next-chog" style="font-size: 0.75rem; color: var(--accent); font-weight: 800; margin-top: 4px; text-transform: uppercase;">Next: --</div>
+            </div>
+        </div>
+
+        <div class="search-container">
+            <form action="https://www.google.com/search" method="GET" target="_blank" class="search-bar" id="search-form">
+                <input type="text" name="q" id="search-input" placeholder="Search Google..." autocomplete="off">
+            </form>
+            <div id="suggestions-box" class="suggestions"></div>
+        </div>
+
+        <div class="grid" id="link-grid"></div>
+        <button onclick="showSettings()" style="margin: 40px 0; background: none; color: var(--text-secondary); border: none; text-decoration: underline; cursor: pointer;">Settings</button>
+    </div>
+
+    <div id="settings-overlay">
+        <div class="settings-card">
+            <h2 style="margin-top:0">Customize Dashboard</h2>
+            
+            <label style="font-size: 0.7rem; color: var(--text-secondary);">QUOTE TEXT (AUTO-FETCHING GITA QUOTES)</label>
+            <input type="text" id="header-input" class="settings-input" disabled value="Bhagavad Gita quote engine active...">
+            
+            <div class="settings-row">
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">FONT FAMILY</label>
+                    <select id="font-family-input" class="settings-select" style="margin:0">
+                        <option value="'Inter'">Inter</option>
+                        <option value="'Montserrat'">Montserrat</option>
+                        <option value="'Playfair Display'">Playfair Display</option>
+                        <option value="'Roboto Mono'">Roboto Mono</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">FONT WEIGHT</label>
+                    <select id="font-weight-input" class="settings-select" style="margin:0">
+                        <option value="400">Regular</option>
+                        <option value="700">Bold</option>
+                        <option value="900">Black</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size: 0.7rem; color: var(--text-secondary);">TEXT COLOR</label>
+                    <input type="color" id="quote-color-input" class="settings-input" style="padding: 2px; height: 42px; margin:0">
+                </div>
+            </div>
+
+            <label style="font-size: 0.7rem; color: var(--text-secondary);">MUTE SCHEDULE (DND)</label>
+            <div style="display:flex; gap:10px; margin-bottom:20px;">
+                <input type="time" id="mute-start" class="settings-input">
+                <input type="time" id="mute-end" class="settings-input">
+            </div>
+
+            <hr style="opacity:0.1; margin: 20px 0;">
+            <h3>Shortcuts</h3>
+            <div id="link-editor"></div>
+            <button onclick="addLink()" style="width:100%; padding:10px; background:rgba(255,255,255,0.05); color:white; border:1px solid var(--glass-border); border-radius:10px; cursor:pointer;">+ Add New Link</button>
+            
+            <button onclick="saveData()" style="width:100%; padding:15px; background:var(--accent); border:none; color:white; font-weight:bold; border-radius:12px; margin-top:25px; cursor:pointer;">Save Everything</button>
+            <button onclick="closeSettings()" style="width:100%; background:none; color:var(--text-secondary); border:none; margin-top:10px; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // FIREBASE SETUP
+        const firebaseConfig = { databaseURL: "https://all-in-one-868c5-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const linksRef = db.ref('dashboard_links');
+        const headerRef = db.ref('dashboard_header_v3'); 
+
+        // CHOGHADIYA DATA
+        const CHOG_NAMES = ["UDVEG", "CHAL", "LABH", "AMRIT", "KAAL", "SHUBH", "ROG"];
+        const DAY_SEQ = [[0,1,2,3,4,5,6,0],[3,4,5,6,0,1,2,3],[6,0,1,2,3,4,5,6],[2,3,4,5,6,0,1,2],[5,6,0,1,2,3,4,5],[1,2,3,4,5,6,0,1],[4,5,6,0,1,2,3,4]];
+        const NIGHT_SEQ = [[5,6,0,1,2,3,4,5],[2,3,4,5,6,0,1,2],[6,0,1,2,3,4,5,6],[4,5,6,0,1,2,3,4],[1,2,3,4,5,6,0,1],[5,6,0,1,2,3,4,5],[3,4,5,6,0,1,2,3]];
+        const colors = ['#6366f1', '#2dd4bf', '#f43f5e', '#fbbf24', '#a855f7', '#0ea5e9'];
+
+        // APP STATE & LOCATION (Secunderabad coords)
+        let appData = { links: [], header: {} };
+        const LAT = 17.4399;
+        const LNG = 78.4983;
+
+        // WEATHER FETCH LOGIC
+        async function fetchWeather() {
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LNG}&current_weather=true`);
+                const data = await res.json();
+                const temp = data.current_weather.temperature;
+                const code = data.current_weather.weathercode;
+                
+                let icon = '☀️';
+                if ([1, 2].includes(code)) icon = '⛅';
+                else if ([3].includes(code)) icon = '☁️';
+                else if ([45, 48].includes(code)) icon = '🌫️';
+                else if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) icon = '🌧️';
+                else if ([71, 73, 75, 77].includes(code)) icon = '❄️';
+                else if ([95, 96, 99].includes(code)) icon = '⛈️';
+
+                document.getElementById('weather-icon').innerText = icon;
+                document.getElementById('weather-temp').innerText = `${temp} °C`;
+            } catch (e) {
+                console.log("Weather fetch failed", e);
+            }
+        }
+        fetchWeather();
+        setInterval(fetchWeather, 3600000); // Refresh weather every hour
+
+        // GITA QUOTES (HINDI)
+        const gitaQuotes = [
+            "कर्म करो, फल की चिंता मत करो।",
+            "परिवर्तन ही संसार का नियम है।",
+            "जो हुआ, वह अच्छा हुआ, जो हो रहा है, वह अच्छा हो रहा है, जो होगा, वह भी अच्छा ही होगा।",
+            "तुम्हारा क्या गया, जो तुम रोते हो? तुम क्या लाए थे, जो तुमने खो दिया?",
+            "आत्मा न कभी जन्म लेती है और न कभी मरती है।",
+            "क्रोध से भ्रम पैदा होता है, भ्रम से बुद्धि व्यग्र होती है, और जब बुद्धि व्यग्र होती है तब तर्क नष्ट हो जाता है।",
+            "मनुष्य अपने विश्वास से निर्मित होता है, वह जैसा विश्वास करता है वैसा ही बन जाता है।",
+            "जो मन को नियंत्रित नहीं करते उनके लिए वह शत्रु के समान कार्य करता है।"
+        ];
+
+        function fetchQuote() {
+            const randomQuote = gitaQuotes[Math.floor(Math.random() * gitaQuotes.length)];
+            document.getElementById('display-header').innerText = `"${randomQuote}" \n— श्रीमद्भगवद्गीता`;
+        }
+        fetchQuote();
+
+        // 1. SUGGESTIONS LOGIC
+        const searchInput = document.getElementById('search-input');
+        const suggestionsBox = document.getElementById('suggestions-box');
+
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val.length < 2) { suggestionsBox.style.display = 'none'; return; }
+            const script = document.createElement('script');
+            script.src = `https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(val)}&callback=handleSuggestions`;
+            document.body.appendChild(script);
+            document.body.removeChild(script);
+        });
+
+        window.handleSuggestions = (data) => {
+            const results = data[1];
+            if (!results.length) return;
+            suggestionsBox.innerHTML = results.slice(0, 5).map(res => `<div class="suggestion-item">${res}</div>`).join('');
+            suggestionsBox.style.display = 'flex';
+            document.querySelectorAll('.suggestion-item').forEach(item => {
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    searchInput.value = item.innerText;
+                    suggestionsBox.style.display = 'none';
+                    document.getElementById('search-form').submit();
+                };
+            });
+        };
+
+        document.addEventListener('click', (e) => {
+            if (!document.querySelector('.search-container').contains(e.target)) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
+
+        // 2. CHOGHADIYA REAL-TIME LOGIC
+        function formatTime(m) {
+            let h = Math.floor((m % 1440) / 60); let mins = Math.floor(m % 60);
+            let ampm = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+            return `${h}:${mins < 10 ? '0'+mins : mins} ${ampm}`;
+        }
+
+        function checkDND() {
+            if (!appData.header || !appData.header.muteStart || !appData.header.muteEnd) {
+                document.body.style.filter = 'none';
+                return;
+            }
+            
+            const now = new Date();
+            const currentMins = now.getHours() * 60 + now.getMinutes();
+            
+            const parseTime = (timeStr) => {
+                const [h, m] = timeStr.split(':').map(Number);
+                return h * 60 + m;
+            };
+
+            const startMins = parseTime(appData.header.muteStart);
+            const endMins = parseTime(appData.header.muteEnd);
+
+            let isMuted = false;
+            if (startMins < endMins) {
+                isMuted = currentMins >= startMins && currentMins < endMins;
+            } else { 
+                isMuted = currentMins >= startMins || currentMins < endMins;
+            }
+
+            document.body.style.filter = isMuted ? 'brightness(0.3) grayscale(1)' : 'none';
+        }
+
+        function updateDisplay() {
+            const now = new Date(); 
+            const mins = now.getHours() * 60 + now.getMinutes();
+            const day = now.getDay();
+            
+            const times = SunCalc.getTimes(now, LAT, LNG);
+            const sunrise = times.sunrise.getHours() * 60 + times.sunrise.getMinutes();
+            const sunset = times.sunset.getHours() * 60 + times.sunset.getMinutes();
+            
+            let isDay = mins >= sunrise && mins < sunset;
+            let start = isDay ? sunrise : sunset;
+            let duration = isDay ? (sunset - sunrise) / 8 : (1440 - (sunset - sunrise)) / 8;
+            let timeInto = (mins < sunrise && !isDay) ? (mins + 1440) - sunset : mins - start;
+            let idx = Math.max(0, Math.min(Math.floor(timeInto / duration), 7));
+
+            const seq = isDay ? DAY_SEQ[day] : NIGHT_SEQ[day];
+            const name = CHOG_NAMES[seq[idx]];
+            
+            const el = document.getElementById('choghadiya-name');
+            el.innerText = name;
+            el.style.color = ["AMRIT", "LABH", "SHUBH"].includes(name) ? "var(--good)" : (["UDVEG", "KAAL", "ROG"].includes(name) ? "var(--bad)" : "var(--neutral)");
+            
+            document.getElementById('chog-range').innerText = `${formatTime(start + (idx * duration))} - ${formatTime(start + ((idx + 1) * duration))}`;
+            document.getElementById('chog-label').innerText = isDay ? "☀️ DAY CHOGHADIYA" : "🌙 NIGHT CHOGHADIYA";
+            
+            let next = (idx < 7) ? CHOG_NAMES[seq[idx + 1]] : (isDay ? CHOG_NAMES[NIGHT_SEQ[day][0]] : CHOG_NAMES[DAY_SEQ[(day + 1) % 7][0]]);
+            document.getElementById('next-chog').innerText = `Next: ${next}`;
+            
+            document.getElementById('live-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('live-date').innerText = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+            checkDND(); 
+        }
+
+        // 3. FIREBASE & CLOUD SYNC
+        linksRef.on('value', s => { appData.links = s.val() || []; renderGrid(); });
+        
+        headerRef.on('value', s => {
+            const d = s.val() || { font: "'Inter'", weight: "900", color: "#f8fafc", muteStart: "", muteEnd: "" };
+            const q = document.getElementById('display-header');
+            
+            q.style.fontFamily = d.font;
+            q.style.fontWeight = d.weight;
+            q.style.color = d.color || "#f8fafc";
+            
+            appData.header = d;
+            updateDisplay(); 
+        });
+
+        function renderGrid() {
+            document.getElementById('link-grid').innerHTML = appData.links.map((l, i) => `
+                <a href="${l.url}" target="_blank" class="link-item" data-name="${l.name}" data-url="${l.url}">
+                    <div style="width:10px; height:10px; border-radius:50%; background:${colors[i % colors.length]}; margin-bottom:10px;"></div>
+                    ${l.name}
+                </a>`).join('');
+        }
+
+        function saveData() {
+            const newHeader = {
+                font: document.getElementById('font-family-input').value,
+                weight: document.getElementById('font-weight-input').value,
+                color: document.getElementById('quote-color-input').value,
+                muteStart: document.getElementById('mute-start').value,
+                muteEnd: document.getElementById('mute-end').value
+            };
+            
+            const updatedLinks = appData.links.map((_, i) => ({ 
+                name: document.getElementById(`n-${i}`).value, 
+                url: document.getElementById(`u-${i}`).value 
+            }));
+            
+            headerRef.update(newHeader);
+            linksRef.set(updatedLinks);
+            closeSettings();
+        }
+
+        // INIT DRAGGABLE GRID WITH AUTO-SAVE ON DROP
+        new Sortable(document.getElementById('link-grid'), { 
+            animation: 150, 
+            delay: 200, 
+            delayOnTouchOnly: true,
+            onEnd: function () {
+                const items = document.querySelectorAll('.link-item');
+                const newOrder = Array.from(items).map(el => ({
+                    name: el.getAttribute('data-name'),
+                    url: el.getAttribute('data-url')
+                }));
+                appData.links = newOrder;
+                linksRef.set(newOrder);
+            }
+        });
+
+        setInterval(updateDisplay, 1000); updateDisplay();
+        
+        // SETTINGS FUNCTIONS
+        function showSettings() { 
+            document.getElementById('settings-overlay').style.display = 'block'; 
+            
+            const d = appData.header;
+            document.getElementById('font-family-input').value = d.font || "'Inter'";
+            document.getElementById('font-weight-input').value = d.weight || "900";
+            document.getElementById('quote-color-input').value = d.color || "#f8fafc";
+            document.getElementById('mute-start').value = d.muteStart || "";
+            document.getElementById('mute-end').value = d.muteEnd || "";
+
+            document.getElementById('link-editor').innerHTML = appData.links.map((l, i) => `
+                <div style="display:flex; gap:5px; margin-bottom:10px;">
+                    <input type="text" class="settings-input" value="${l.name}" id="n-${i}" style="width:30%; margin:0">
+                    <input type="text" class="settings-input" value="${l.url}" id="u-${i}" style="width:60%; margin:0">
+                    <button onclick="removeLink(${i})" style="color:var(--bad); background:none; border:none; cursor:pointer;">✕</button>
+                </div>`).join('');
+        }
+        function closeSettings() { document.getElementById('settings-overlay').style.display = 'none'; }
+        function addLink() { appData.links.push({name: "New", url: "https://"}); showSettings(); }
+        function removeLink(i) { appData.links.splice(i, 1); showSettings(); }
+    </script>
+</body>
+</html>
